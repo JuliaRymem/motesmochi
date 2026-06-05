@@ -3,6 +3,7 @@
 
 import os
 import sys
+import json
 import datetime
 import threading
 import webbrowser
@@ -18,6 +19,21 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
 CREDENTIALS_FILE = os.path.expanduser("~/.motesmochi/credentials.json")
 TOKEN_FILE = os.path.expanduser("~/.motesmochi/token.json")
+PREFS_FILE = os.path.expanduser("~/.motesmochi/prefs.json")
+ICONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+
+CHARACTERS = [
+    ("vanilla",  "Vanilla"),
+    ("sakura",   "Sakura"),
+    ("matcha",   "Matcha"),
+    ("sushi",    "Sushi"),
+    ("cloud",    "Cloud"),
+    ("kinoko",   "Kinoko"),
+    ("shiro",    "Shiro"),
+    ("neko",     "Neko"),
+    ("fuusen",   "Fuusen"),
+    ("yoru",     "Yoru"),
+]
 
 POLL_INTERVAL = 60          # seconds between calendar checks
 NOTIFY_AHEAD_MINUTES = 5    # minutes before meeting to send notification
@@ -26,6 +42,24 @@ SHOW_UPCOMING_MINUTES = 10  # window for "upcoming" meetings
 
 def ensure_config_dir():
     os.makedirs(os.path.dirname(CREDENTIALS_FILE), exist_ok=True)
+
+
+def load_prefs():
+    try:
+        with open(PREFS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_prefs(prefs):
+    ensure_config_dir()
+    with open(PREFS_FILE, "w") as f:
+        json.dump(prefs, f)
+
+
+def icon_path(name):
+    return os.path.join(ICONS_DIR, f"{name}.png")
 
 
 def get_credentials():
@@ -115,20 +149,38 @@ def meet_link(event):
 
 class MötesMochi(rumps.App):
     def __init__(self):
-        super().__init__("🍡", quit_button=None)
+        prefs = load_prefs()
+        self._character = prefs.get("character", "vanilla")
+        initial_icon = icon_path(self._character)
+        super().__init__("", icon=initial_icon, quit_button=None)
+        self.title = ""  # icon only, no text
         self._creds = None
-        self._notified = set()          # event ids already notified
+        self._notified = set()
         self._next_event = None
 
         self.next_meeting_item = rumps.MenuItem(
             "No upcoming meetings", callback=self._open_meet
         )
         self.refresh_item = rumps.MenuItem("Refresh", callback=self._refresh)
+
+        # Character picker submenu
+        character_menu = rumps.MenuItem("Välj karaktär")
+        for key, label in CHARACTERS:
+            item = rumps.MenuItem(label, callback=self._pick_character)
+            item._character_key = key
+            character_menu.add(item)
+
         self.quit_item = rumps.MenuItem("Quit MötesMochi", callback=rumps.quit_application)
 
-        self.menu = [self.next_meeting_item, None, self.refresh_item, None, self.quit_item]
+        self.menu = [
+            self.next_meeting_item,
+            None,
+            self.refresh_item,
+            character_menu,
+            None,
+            self.quit_item,
+        ]
 
-        # Kick off auth + first fetch in a background thread so the app launches fast
         threading.Thread(target=self._init_auth, daemon=True).start()
 
     # ------------------------------------------------------------------
@@ -237,6 +289,14 @@ class MötesMochi(rumps.App):
             threading.Thread(target=self._init_auth, daemon=True).start()
         else:
             threading.Thread(target=self._do_refresh, daemon=True).start()
+
+    def _pick_character(self, sender):
+        self._character = sender._character_key
+        self.icon = icon_path(self._character)
+        self.title = ""
+        prefs = load_prefs()
+        prefs["character"] = self._character
+        save_prefs(prefs)
 
 
 if __name__ == "__main__":

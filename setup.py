@@ -23,9 +23,18 @@ OPTIONS = {
         "google.auth",
         "google.oauth2",
         "google.auth.transport",
+        "google.auth.transport.requests",
         "google_auth_oauthlib",
         "googleapiclient",
+        "PIL",
+        "httplib2",
+        "uritemplate",
+        "cachetools",
+        "pyasn1",
+        "pyasn1_modules",
+        "rsa",
     ],
+    "resources": ["icons"],
 }
 
 setup(
