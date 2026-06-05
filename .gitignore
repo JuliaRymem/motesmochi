@@ -1,0 +1,16 @@
+# Credentials & tokens — never commit
+.motesmochi/
+~/.motesmochi/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# py2app build output
+build/
+dist/
+
+# macOS
+.DS_Store
